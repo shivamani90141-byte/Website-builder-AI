@@ -4,25 +4,37 @@ import {
   useContext,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import { toast } from "react-hot-toast";
+import debounce from "lodash.debounce";
 
 const AppContext = createContext(undefined);
 
 export function AppContextProvider({ children }) {
   const navigate = useNavigate();
+
   // Auth States
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
-  // Auth Actions
+  // Project States
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [activeProject, setActiveProject] = useState(null);
+  const [loadingActiveProject, setLoadingActiveProject] = useState(true);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [generatingProject, setGeneratingProject] = useState(false);
+  const [activeFile, setActiveFile] = useState("/App.js");
+  const [showCode, setShowCode] = useState(false);
+
+  // Check User Session
   const checkSession = useCallback(async () => {
     try {
       const { data } = await api.get("/api/auth/me");
-
       setUser(data.user);
     } catch (error) {
       setUser(null);
@@ -35,19 +47,28 @@ export function AppContextProvider({ children }) {
     checkSession();
   }, [checkSession]);
 
+  // Login
   const login = async (email, password) => {
     try {
-      const { data } = await api.post("/api/auth/login", { email, password });
+      const { data } = await api.post("/api/auth/login", {
+        email,
+        password,
+      });
+
       setUser(data.user);
       toast.success("Logged in successfully");
       navigate("/");
-    } catch (error) {
-      console.error("Failed to log in", error);
-      const errMsg = error?.response?.data?.error || "Failed to log in";
+    } catch (err) {
+      console.error("Failed to log in", err);
+
+      const errMsg = err?.response?.data?.error || "Failed to log in";
+
+      toast.error(errMsg);
       throw new Error(errMsg);
     }
   };
 
+  // Register
   const register = async (name, email, password) => {
     try {
       const { data } = await api.post("/api/auth/register", {
@@ -55,24 +76,305 @@ export function AppContextProvider({ children }) {
         email,
         password,
       });
+
       setUser(data.user);
       toast.success("Account created successfully");
       navigate("/");
-    } catch (error) {
+    } catch (err) {
       console.error("Failed to create account", err);
+
       const errMsg = err?.response?.data?.error || "Failed to create account";
+
       toast.error(errMsg);
       throw new Error(errMsg);
     }
   };
+
+  // Logout
+  const logout = async () => {
+    try {
+      await api.post("/api/auth/logout");
+
+      setUser(null);
+      setProjects([]);
+      setActiveProject(null);
+
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      toast.error("Logout failed");
+    }
+  };
+
+  // Load Projects
+  const loadProjects = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data } = await api.get("/api/projects");
+
+      setProjects(data);
+    } catch (err) {
+      console.error("Failed to list projects:", err);
+      toast.error("Failed to load projects list");
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [user]);
+
+  // Load Single Project
+  const loadProject = useCallback(
+    async (id, silent = false) => {
+      if (!user) return;
+
+      if (!silent) {
+        setLoadingActiveProject(true);
+      }
+
+      try {
+        const { data } = await api.get(`/api/projects/${id}`);
+
+        // Add missing default files
+        const projectFiles = {
+          "/index.js": `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./styles.css";
+
+const root = ReactDOM.createRoot(
+  document.getElementById("root")
+);
+
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`,
+
+          "/package.json": `{
+  "dependencies": {
+    "react": "latest",
+    "react-dom": "latest"
+  }
+}`,
+
+          "/public/index.html": `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>React App</title>
+  </head>
+
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`,
+
+          ...data.files,
+        };
+
+        const updatedProject = {
+          ...data,
+          files: projectFiles,
+        };
+
+        setActiveProject(updatedProject);
+
+        // Default file selection
+        const files = Object.keys(projectFiles);
+
+        if (files.length > 0) {
+          setActiveFile((prev) => {
+            if (files.includes(prev)) {
+              return prev;
+            }
+
+            if (files.includes("/App.js")) {
+              return "/App.js";
+            }
+
+            return files[0];
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load project:", err);
+
+        if (!silent) {
+          toast.error("Failed to load project details");
+          navigate("/");
+        }
+      } finally {
+        if (!silent) {
+          setLoadingActiveProject(false);
+        }
+      }
+    },
+    [user, navigate],
+  );
+
+  // Automatically poll active project status
+  useEffect(() => {
+    if (!activeProject?._id || !user) return;
+
+    const isOngoing =
+      activeProject.status === "generating" ||
+      activeProject.status === "pending" ||
+      activeProject.status === "revising";
+
+    if (isOngoing) {
+      setChatLoading(true);
+
+      const interval = setInterval(() => {
+        loadProject(activeProject._id, true);
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+
+    setChatLoading(false);
+  }, [activeProject?._id, activeProject?.status, loadProject, user]);
+
+  // Generate Project
+  const handleGenerate = useCallback(
+    async (prompt) => {
+      if (!user) return;
+
+      setGeneratingProject(true);
+
+      try {
+        const { data } = await api.post("/api/projects", { prompt });
+
+        toast.success("AI Agent is planning structure...");
+        navigate(`/builder/${data._id}`);
+      } catch (err) {
+        console.error("Failed to generate project:", err);
+
+        toast.error(err?.response?.data?.error || "Failed to generate project");
+      } finally {
+        setGeneratingProject(false);
+      }
+    },
+    [navigate, user],
+  );
+
+  // Delete Project
+  const handleDelete = useCallback(
+    async (id) => {
+      if (!user) return;
+
+      try {
+        await api.delete(`/api/projects/${id}`);
+
+        setProjects((prev) => prev.filter((project) => project._id !== id));
+
+        toast.success("Project deleted successfully");
+      } catch (err) {
+        console.error("Failed to delete project:", err);
+        toast.error("Failed to delete project");
+      }
+    },
+    [user],
+  );
+
+  // Chat With AI
+  const handleChat = useCallback(
+    async (prompt) => {
+      if (!activeProject || !user) return;
+
+      setChatLoading(true);
+
+      try {
+        const { data } = await api.post(
+          `/api/projects/${activeProject._id}/chat`,
+          { prompt },
+        );
+
+        setActiveProject(data);
+
+        if (data.errors && data.errors.length > 0) {
+          toast.error(`${data.errors.length} revision patch(es) failed`);
+        } else {
+          toast.success(`Updated to version ${data.version}`);
+        }
+      } catch (err) {
+        console.error("Revision request failed:", err);
+
+        toast.error(err?.response?.data?.error || "Revision request failed");
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [activeProject, user],
+  );
+
+  // Debounced Auto Save
+  const debouncedSave = useMemo(
+    () =>
+      debounce(async (files, id) => {
+        try {
+          await api.put(`/api/projects/${id}/files`, { files });
+        } catch (err) {
+          console.error("Failed to auto-save files:", err);
+          toast.error("Failed to save code modifications");
+        }
+      }, 1000),
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedSave.cancel();
+    };
+  }, [debouncedSave]);
+
+  // Update Project Files
+  const updateProjectFiles = useCallback(
+    async (files) => {
+      if (!activeProject || !user) return;
+
+      debouncedSave(files, activeProject._id);
+    },
+    [activeProject, user, debouncedSave],
+  );
 
   return (
     <AppContext.Provider
       value={{
         user,
         loadingUser,
+
         login,
         register,
+        logout,
+
+        projects,
+        loadingProjects,
+
+        activeProject,
+        loadingActiveProject,
+
+        chatLoading,
+        generatingProject,
+
+        activeFile,
+        showCode,
+
+        setActiveFile,
+        setShowCode,
+
+        loadProjects,
+        loadProject,
+
+        handleGenerate,
+        handleDelete,
+        handleChat,
+
+        updateProjectFiles,
       }}
     >
       {children}
