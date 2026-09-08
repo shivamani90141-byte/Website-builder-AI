@@ -42,7 +42,6 @@ export function AppContextProvider({ children }) {
       setLoadingUser(false);
     }
   }, []);
-
   useEffect(() => {
     checkSession();
   }, [checkSession]);
