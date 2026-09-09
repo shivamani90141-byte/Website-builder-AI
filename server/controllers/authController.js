@@ -4,13 +4,13 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret"
 //Helper to set cookies
-const setSessionCookie = (req, payload)=>{
+const setSessionCookie = (res, payload)=>{
     const token = jwt.sign(payload,JWT_SECRET, {expiresIn:"30d"})
     res.cookie('token',token,{
       httpOnly:true,
       secure:process.env.NODE_ENV === "production",
       sameSite:"lax",
-      maxAge:30*24*60*1000, // 30 days
+      maxAge:30*24*60*60*1000, // 30 days
       path:"/",
     })
 }
@@ -58,7 +58,7 @@ export async function login(req, res) {
   }
 
   const user = await User.findOne({email: email.toLowerCase().trim()})
-  if(existing){
+  if(!user){
     res.status(401).json({error: "Invalid email or password"})
     return;
   }
@@ -70,7 +70,7 @@ export async function login(req, res) {
 
   setSessionCookie(res,{userId : user._id.toString(), email:user.email})
 
-  res.status(201).json({
+  res.status(200).json({
     user: {
       _id: user_id,
       name:user.name,
