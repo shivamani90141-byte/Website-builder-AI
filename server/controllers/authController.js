@@ -15,6 +15,13 @@ const setSessionCookie = (res, payload)=>{
     })
 }
 
+/**
+ * Registers a user, starts their session, and returns the created account.
+ *
+ * @param {import("express").Request} req The registration request.
+ * @param {import("express").Response} res The response used to return the account.
+ * @returns {Promise<void>}
+ */
 export async function register(req, res) {
   const {name, email, password} = req.body
 
@@ -49,6 +56,13 @@ export async function register(req, res) {
 })
 }
 
+/**
+ * Authenticates a user, starts their session, and returns their account.
+ *
+ * @param {import("express").Request} req The login request.
+ * @param {import("express").Response} res The response used to return the account.
+ * @returns {Promise<void>}
+ */
 export async function login(req, res) {
       const { email, password} = req.body
 
@@ -79,6 +93,13 @@ export async function login(req, res) {
 })
 }
 
+/**
+ * Clears the current user's session cookie.
+ *
+ * @param {import("express").Request} _req The logout request.
+ * @param {import("express").Response} res The response used to clear the session.
+ * @returns {Promise<void>}
+ */
 export async function logout(_req, res) {
     res.cookie("token","",{
       httpOnly:true,
@@ -90,6 +111,13 @@ export async function logout(_req, res) {
     res.json({success:true})
 }
 
+/**
+ * Returns the authenticated user's account without its password.
+ *
+ * @param {import("express").Request} req The authenticated request.
+ * @param {import("express").Response} res The response used to return the account.
+ * @returns {Promise<void>}
+ */
 export async function me(req, res) {
   if(!req.user){
     res.status(401).json({error:"Not authenticated"})
