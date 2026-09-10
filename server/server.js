@@ -1,9 +1,11 @@
 import express from "express";
 import dotenv from "dotenv";
+// dotenv allows you to load values from your .env file.
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connectToDatabase } from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
+import projectRouter from "./routes/projectRoutes.js";
 
 dotenv.config();
 
@@ -26,8 +28,9 @@ app.use(express.json());
 
 app.get("/",(req,res)=>res.send("Serveris Live!"));
 app.use('/api/auth',authRouter)
+app.use("/api/projects", projectRouter)
 
-//centrallized error handler
+// error handler
 // app.use((err,_req,res,_next)=>{
 //     console.error(`[ERROR] ${err.message}`);
 //     res.status(500).json({error: err.message})
