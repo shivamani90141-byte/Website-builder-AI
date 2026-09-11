@@ -203,3 +203,6 @@ Example:
                                 │ 🖥️ Live Preview │
                                 └─────────────────┘
 
+👨‍💻 Author
+      - Jillella Shivamani
+      
