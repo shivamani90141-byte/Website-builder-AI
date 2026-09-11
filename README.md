@@ -137,7 +137,7 @@ Example:
                        ▼
                  🖥️ LIVE PREVIEW
                  
-🧠AI Generation Pipeline
+🧠AI Revision Pipeline
 
               👤 USER REQUEST
                      │
