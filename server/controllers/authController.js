@@ -49,7 +49,7 @@ export async function register(req, res) {
 
   res.status(201).json({
     user: {
-      _id: user_id,
+      _id: user._id,
       name: user.name,
       email: user.email
     }
@@ -86,7 +86,7 @@ export async function login(req, res) {
 
   res.status(200).json({
     user: {
-      _id: user_id,
+      _id: user._id,
       name:user.name,
       email: user.email
     }

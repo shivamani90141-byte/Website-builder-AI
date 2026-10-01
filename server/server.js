@@ -1,13 +1,11 @@
 import express from "express";
-import dotenv from "dotenv";
-// dotenv allows you to load values from your .env file.
+import "dotenv/config";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connectToDatabase } from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
 import projectRouter from "./routes/projectRoutes.js";
 
-dotenv.config();
 
 const app = express();
 
