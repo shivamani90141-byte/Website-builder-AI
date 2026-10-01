@@ -16,7 +16,7 @@ const ProjectSchema = new Schema({
   description:{type: String, default:""},
   files:{type: Schema.Types.Mixed, default:{}},
   messages:{type: [MessageSchema], default:[]}, 
-  version:{type:Number, default:[]},
+  version:{type:Number, default:1},
   owner:{type: Schema.Types.ObjectId, ref:"User", required: true},
   published:{type:Boolean, default: false},
   status:{type:String, enum:["pending", "generating", "revising","completed","failed"], default: "pending"},

@@ -88,7 +88,7 @@ async function runBackgroundGeneration( projectId, prompt) {
               currentFile:path,
             })
           },
-          onFileComplete: async (path) =>{
+          onFileComplete: async (path,code) =>{
             console.log(`[Background AI] Finished file ${path} for project ${projectId}`);
 
             const project = await Project.findById(projectId);
@@ -115,7 +115,7 @@ async function runBackgroundGeneration( projectId, prompt) {
           project.status = "completed";
           project.version = 1;
           if(result.description){
-              project.name = result.description;
+              project.description = result.description;
           }
           project.messages.push({
             role: "assistant",
@@ -244,9 +244,7 @@ export async function updateProjectFiles( req, res) {
 
   const filesObj = {};
   for(const [path, entry] of Object.entries(project.files)){
-    if(typeof entry.content === "string"){
-      filesObj[path] = entry.content;
-    }
+    filesObj[path] = entry.content;
   } 
 
   res.json({

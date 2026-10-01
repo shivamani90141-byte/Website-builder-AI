@@ -16,7 +16,7 @@ projectRouter.get("/", listProjects)
 projectRouter.get("/:id", getProject)
 projectRouter.delete("/:id", deleteProject)
 projectRouter.put("/:id/files", updateProjectFiles)
-projectRouter.post("/:id", publishProject)
+projectRouter.post("/:id/publish", publishProject)
 
 //Chat
 projectRouter.post("/:id/chat",chat)

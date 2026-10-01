@@ -4,8 +4,8 @@ import { applyOperations } from "../services/diff.js";
 
 export function buildManifest(files){
   const manifest = [];
-  for(const [Path2D, entry] of Object.entries(files)){
-    manifest.push({path,hash: entry.hash,size:entry.content.length})
+  for(const [path, entry] of Object.entries(files)){
+    manifest.push({path, hash: entry.hash, size: entry.content.length})
   }
   return manifest;
 }
@@ -104,6 +104,6 @@ export async function chat(req, res){
       console.error(`[AI Revision Error] ${error.message}`);
       project.status="completed";
       await project.save();
-      res.status(500).json({error: err.message || "Failed to process revision request"});
+      res.status(500).json({error: error.message || "Failed to process revision request"});
   }
 }
